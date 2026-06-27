@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>백승완의 튜터</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg:#0d0d0d; --surface:#161616; --surface2:#1e1e1e;
+    --border:#2a2a2a; --accent:#c8a96e; --accent-dim:rgba(200,169,110,0.15);
+    --text:#e8e4dc; --muted:#6b6660; --success:#6ec88a; --danger:#e05c5c;
+  }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:'Noto Sans KR',sans-serif;
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+
+  /* ── 상단 아이콘 바 ── */
+  .topbar {
+    position:fixed; top:0; left:0; right:0;
+    display:flex; justify-content:flex-end; padding:16px 20px; z-index:100;
+  }
+  .icon-btn {
+    background:none; border:none; cursor:pointer; color:var(--muted);
+    padding:6px; border-radius:4px; transition:color 0.2s;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:hover { color:var(--accent); }
+  .icon-btn svg { width:20px; height:20px; }
+
+  /* ── 설정 오버레이 ── */
+  .settings-overlay {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
+    z-index:200; align-items:flex-start; justify-content:center;
+    padding:24px; overflow-y:auto;
+  }
+  .settings-overlay.open { display:flex; }
+  .settings-panel {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; width:100%; max-width:440px; padding:28px;
+    animation:fadeIn 0.25s ease; margin:auto;
+  }
+  .settings-title {
+    font-size:11px; letter-spacing:0.15em; text-transform:uppercase;
+    color:var(--accent); margin-bottom:24px;
+  }
+
+  /* 설정 행 */
+  .setting-row {
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+  }
+  .row-drag {
+    color:var(--border); cursor:grab; font-size:16px;
+    padding:0 2px; user-select:none; flex-shrink:0;
+  }
+  .setting-name-input {
+    flex:1; background:var(--surface2); border:1px solid var(--border);
+    border-radius:4px; color:var(--text); font-family:'Noto Sans KR',sans-serif;
+    font-size:13px; padding:9px 12px; outline:none; transition:border-color 0.2s;
+    min-width:0;
+  }
+  .setting-name-input:focus { border-color:var(--accent); }
+  .setting-time-input {
+    width:56px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:4px; color:var(--accent); font-family:'Noto Sans KR',sans-serif;
+    font-size:13px; padding:9px 6px; outline:none; text-align:center;
+    transition:border-color 0.2s; flex-shrink:0;
+  }
+  .setting-time-input:focus { border-color:var(--accent); }
+  .setting-unit { font-size:11px; color:var(--muted); flex-shrink:0; }
+  .row-type-toggle {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:4px; color:var(--muted); font-family:'Noto Sans KR',sans-serif;
+    font-size:11px; padding:9px 8px; cursor:pointer; flex-shrink:0;
+    transition:all 0.2s; white-space:nowrap;
+  }
+  .row-type-toggle.is-rest { color:var(--success); border-color:var(--success); background:rgba(110,200,138,0.08); }
+  .row-delete {
+    background:none; border:none; color:var(--border); cursor:pointer;
+    font-size:18px; padding:0 2px; flex-shrink:0; line-height:1;
+    transition:color 0.2s;
+  }
+  .row-delete:hover { color:var(--danger); }
+
+  /* 추가 버튼 */
+  .btn-add-row {
+    width:100%; padding:10px; border:1px dashed var(--border); border-radius:4px;
+    background:transparent; color:var(--muted); font-family:'Noto Sans KR',sans-serif;
+    font-size:13px; cursor:pointer; margin-top:4px; margin-bottom:20px;
+    transition:all 0.2s;
+  }
+  .btn-add-row:hover { border-color:var(--accent); color:var(--accent); }
+
+  .settings-actions { display:flex; gap:10px; }
+  .btn-save {
+    flex:1; padding:13px; border:none; border-radius:4px;
+    background:var(--accent); color:#0d0d0d;
+    font-family:'Noto Sans KR',sans-serif; font-size:14px; font-weight:500;
+    cursor:pointer; transition:background 0.2s;
+  }
+  .btn-save:hover { background:#d4b87a; }
+  .btn-cancel {
+    padding:13px 18px; border:1px solid var(--border); border-radius:4px;
+    background:transparent; color:var(--muted);
+    font-family:'Noto Sans KR',sans-serif; font-size:14px;
+    cursor:pointer; transition:all 0.2s;
+  }
+  .btn-cancel:hover { color:var(--text); border-color:var(--muted); }
+
+  /* ── 화면 공통 ── */
+  .screen { display:none; width:100%; max-width:480px; animation:fadeIn 0.4s ease; }
+  .screen.active { display:flex; flex-direction:column; align-items:center; }
+  @keyframes fadeIn {
+    from { opacity:0; transform:translateY(12px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .label { font-size:11px; font-weight:500; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:32px; }
+  .greeting-name { font-size:13px; color:var(--accent); letter-spacing:0.1em; margin-bottom:16px; }
+  h1 { font-size:28px; font-weight:300; line-height:1.4; text-align:center; margin-bottom:48px; }
+  h1 strong { font-weight:700; }
+
+  .btn-group { display:flex; gap:12px; width:100%; }
+  .btn {
+    flex:1; padding:16px; border:none; border-radius:4px;
+    font-family:'Noto Sans KR',sans-serif; font-size:15px; font-weight:500;
+    cursor:pointer; transition:all 0.2s;
+  }
+  .btn-yes { background:var(--accent); color:#0d0d0d; }
+  .btn-yes:hover { background:#d4b87a; }
+  .btn-no { background:transparent; color:var(--muted); border:1px solid var(--border); }
+  .btn-no:hover { border-color:var(--muted); color:var(--text); }
+
+  .session-header { width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:40px; }
+  .step-indicator { font-size:11px; letter-spacing:0.12em; color:var(--muted); }
+  .step-dots { display:flex; gap:6px; }
+  .dot { width:6px; height:6px; border-radius:50%; background:var(--border); transition:background 0.3s; }
+  .dot.active { background:var(--accent); }
+  .dot.done   { background:var(--success); }
+
+  .phase-label { font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:var(--accent); margin-bottom:16px; }
+  .phase-title { font-size:24px; font-weight:300; margin-bottom:8px; text-align:center; }
+  .phase-desc  { font-size:14px; color:var(--muted); text-align:center; margin-bottom:40px; line-height:1.6; }
+
+  .timer-ring { position:relative; width:200px; height:200px; margin-bottom:32px; }
+  .timer-ring svg { transform:rotate(-90deg); }
+  .timer-ring circle { fill:none; stroke-width:3; }
+  .ring-bg { stroke:var(--border); }
+  .ring-progress { stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset 1s linear; }
+
+  .timer-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+  .timer-digits { font-size:42px; font-weight:300; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+  .timer-sublabel { font-size:11px; color:var(--muted); letter-spacing:0.1em; margin-top:4px; }
+
+  .timer-controls { display:flex; gap:10px; width:100%; }
+  .btn-full {
+    flex:1; padding:18px; border:none; border-radius:4px;
+    font-family:'Noto Sans KR',sans-serif; font-size:15px; font-weight:500;
+    cursor:pointer; transition:all 0.2s;
+  }
+  .btn-primary { background:var(--accent); color:#0d0d0d; }
+  .btn-primary:hover { background:#d4b87a; }
+  .btn-primary:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; }
+  .btn-pause {
+    width:60px; padding:18px; border:1px solid var(--border); border-radius:4px;
+    background:transparent; color:var(--muted);
+    font-family:'Noto Sans KR',sans-serif; font-size:18px;
+    cursor:pointer; transition:all 0.2s; display:none;
+    align-items:center; justify-content:center;
+  }
+  .btn-pause:hover { border-color:var(--muted); color:var(--text); }
+  .btn-pause.visible { display:flex; }
+
+  .rest-badge {
+    width:80px; height:80px; border-radius:50%; border:2px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:32px; margin-bottom:32px;
+  }
+
+  .record-textarea {
+    width:100%; background:var(--surface); border:1px solid var(--border);
+    border-radius:4px; color:var(--text); font-family:'Noto Sans KR',sans-serif;
+    font-size:14px; line-height:1.7; padding:20px; resize:none; height:180px;
+    margin-bottom:16px; outline:none; transition:border-color 0.2s;
+  }
+  .record-textarea:focus { border-color:var(--accent); }
+  .record-textarea::placeholder { color:var(--muted); }
+
+  .complete-mark {
+    width:72px; height:72px; border-radius:50%;
+    background:var(--accent-dim); border:2px solid var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font-size:28px; margin-bottom:32px;
+  }
+  .complete-title { font-size:26px; font-weight:300; margin-bottom:16px; text-align:center; }
+  .complete-msg { font-size:14px; color:var(--muted); text-align:center; line-height:1.8; margin-bottom:40px; max-width:340px; white-space:pre-line; }
+  .streak-box {
+    background:var(--surface); border:1px solid var(--border); border-radius:4px;
+    padding:20px 32px; text-align:center; margin-bottom:32px; width:100%;
+  }
+  .streak-num { font-size:40px; font-weight:700; color:var(--accent); display:block; }
+  .streak-label { font-size:12px; color:var(--muted); letter-spacing:0.1em; }
+
+  .exit-screen { text-align:center; }
+  .exit-screen p { font-size:16px; font-weight:300; color:var(--muted); line-height:1.8; margin-bottom:40px; }
+</style>
+</head>
+<body>
+
+<!-- 설정 아이콘 -->
+<div class="topbar">
+  <button class="icon-btn" onclick="openSettings()" title="설정">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</div>
+
+<!-- 설정 오버레이 -->
+<div class="settings-overlay" id="settings-overlay">
+  <div class="settings-panel">
+    <div class="settings-title">루틴 설정</div>
+    <div id="settings-rows"></div>
+    <button class="btn-add-row" onclick="addSettingRow()">+ 세션 추가</button>
+    <div class="settings-actions">
+      <button class="btn-cancel" onclick="closeSettings()">취소</button>
+      <button class="btn-save" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 1. 인사 -->
+<div class="screen active" id="screen-greeting">
+  <div class="greeting-name">백승완</div>
+  <h1>오늘도<br><strong>공부할 준비</strong>가<br>되셨나요?</h1>
+  <div class="btn-group">
+    <button class="btn btn-no" onclick="decline()">아니오</button>
+    <button class="btn btn-yes" onclick="startSession()">네, 시작합니다</button>
+  </div>
+</div>
+
+<!-- 2. 거절 -->
+<div class="screen" id="screen-decline">
+  <div class="label">알겠습니다</div>
+  <h1>준비가 되면<br>언제든 다시<br>불러주세요.</h1>
+</div>
+
+<!-- 동적 세션 화면 -->
+<div id="dynamic-screens"></div>
+
+<!-- 기록 -->
+<div class="screen" id="screen-record">
+  <div class="phase-label">기록</div>
+  <div class="phase-title">오늘 배운 것을<br>기록하세요</div>
+  <div class="phase-desc" style="margin-bottom:32px">짧아도 됩니다. 한 줄이라도.</div>
+  <textarea class="record-textarea" id="record-input" placeholder="오늘 읽은 내용, 새로 알게 된 것, 기억하고 싶은 문장..."></textarea>
+  <div class="timer-controls">
+    <button class="btn-full btn-primary" onclick="finishRecord()">완료</button>
+  </div>
+</div>
+
+<!-- 완료 -->
+<div class="screen" id="screen-complete">
+  <div class="complete-mark">✓</div>
+  <div class="complete-title">오늘도 해냈습니다.</div>
+  <div class="complete-msg" id="complete-msg"></div>
+  <div class="streak-box">
+    <span class="streak-num" id="streak-num">1</span>
+    <span class="streak-label">연속 학습일</span>
+  </div>
+  <div class="timer-controls">
+    <button class="btn-full btn-primary" onclick="exitApp()">앱 종료</button>
+  </div>
+</div>
+
+<!-- 종료 -->
+<div class="screen exit-screen" id="screen-exit">
+  <div class="label">수고하셨습니다</div>
+  <p>오늘 쌓은 것은<br>아무도 빼앗아 가지 않습니다.</p>
+  <button class="btn btn-yes" style="width:100%;max-width:320px" onclick="resetApp()">처음으로</button>
+</div>
+
+<script>
+// ── 기본 데이터 ──
+const DEFAULT_SESSIONS = [
+  { id:'english', name:'영어 신문 낭독', minutes:30, isRest:false },
+  { id:'rest1',   name:'휴식',           minutes:5,  isRest:true  },
+  { id:'reading', name:'독서',           minutes:30, isRest:false },
+];
+
+function loadSessions() {
+  try { const s = localStorage.getItem('sw_sessions'); if (s) return JSON.parse(s); } catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_SESSIONS));
+}
+function saveSessions(s) { localStorage.setItem('sw_sessions', JSON.stringify(s)); }
+
+let sessions = loadSessions();
+let currentPhaseIndex = 0;
+let timerState = {};
+
+const praiseMessages = [
+  "오늘 백승완은 어제보다 조금 더 넓어졌습니다.",
+  "30분씩 두 번. 작아 보이지만\n20년의 습관을 바꾸는 하루입니다.",
+  "꾸준함은 재능보다 강합니다.\n오늘도 그 증거를 만들었습니다.",
+  "오늘 한 것이 내일의 자신을 설명합니다.\n잘 하셨습니다.",
+  "앉아서 버텼습니다.\n그것만으로도 충분합니다."
+];
+
+function uid() { return 's' + Math.random().toString(36).slice(2,7); }
+
+// ── 화면 전환 ──
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+// ── 동적 세션 화면 생성 ──
+function buildScreens() {
+  const container = document.getElementById('dynamic-screens');
+  container.innerHTML = '';
+  const nonRest = sessions.filter(s => !s.isRest);
+
+  sessions.forEach((sess) => {
+    const div = document.createElement('div');
+    div.className = 'screen';
+    div.id = 'screen-' + sess.id;
+
+    let headerHTML = '';
+    if (!sess.isRest) {
+      const pos = nonRest.findIndex(s => s.id === sess.id);
+      const dots = nonRest.map((s,i) =>
+        `<div class="dot ${i<pos?'done':i===pos?'active':''}"></div>`).join('');
+      headerHTML = `<div class="session-header" style="width:100%">
+        <span class="step-indicator">${pos+1} / ${nonRest.length}</span>
+        <div class="step-dots">${dots}</div></div>`;
+    }
+
+    const mm = String(sess.minutes).padStart(2,'0');
+    const restBadge = sess.isRest ? `<div class="rest-badge">☕</div>` : '';
+
+    div.innerHTML = `
+      ${headerHTML}
+      ${restBadge}
+      <div class="phase-label">${sess.isRest ? '휴식' : '학습'}</div>
+      <div class="phase-title">${sess.name}</div>
+      <div class="phase-desc">${sess.isRest ? '잠시 쉬세요.<br>다음 세션이 기다립니다.' : '집중하세요.'}</div>
+      <div class="timer-ring">
+        <svg width="200" height="200" viewBox="0 0 200 200">
+          <circle class="ring-bg" cx="100" cy="100" r="90"/>
+          <circle class="ring-progress" id="ring-${sess.id}" cx="100" cy="100" r="90"
+            stroke-dasharray="565.5" stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-text">
+          <div class="timer-digits" id="timer-${sess.id}">${mm}:00</div>
+          <div class="timer-sublabel" id="sublabel-${sess.id}">남은 시간</div>
+        </div>
+      </div>
+      <div class="timer-controls">
+        <button class="btn-full btn-primary" id="btn-start-${sess.id}" onclick="startTimer('${sess.id}')">타이머 시작</button>
+        <button class="btn-pause" id="btn-pause-${sess.id}" onclick="togglePause('${sess.id}')">⏸</button>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+buildScreens();
+
+// ── 인사 ──
+function decline() {
+  show('screen-decline');
+  setTimeout(() => {
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#6b6660;font-family:Noto Sans KR,sans-serif;font-size:14px;">준비가 되면 다시 열어주세요.</div>';
+  }, 2000);
+}
+function startSession() { currentPhaseIndex = 0; showPhase(0); }
+
+function showPhase(idx) {
+  if (idx >= sessions.length) { show('screen-record'); return; }
+  const sess = sessions[idx];
+  const mm = String(sess.minutes).padStart(2,'0');
+  const disp = document.getElementById('timer-' + sess.id);
+  if (disp) disp.textContent = mm + ':00';
+  const ring = document.getElementById('ring-' + sess.id);
+  if (ring) ring.style.strokeDashoffset = '0';
+  const bs = document.getElementById('btn-start-' + sess.id);
+  if (bs) { bs.disabled = false; bs.textContent = '타이머 시작'; }
+  const bp = document.getElementById('btn-pause-' + sess.id);
+  if (bp) bp.classList.remove('visible');
+  show('screen-' + sess.id);
+}
+
+// ── 타이머 ──
+function startTimer(sessId) {
+  const sess = sessions.find(s => s.id === sessId);
+  const total = sess.minutes * 60;
+  timerState[sessId] = { remaining: total, total, paused: false, intervalId: null };
+
+  const bs = document.getElementById('btn-start-' + sessId);
+  const bp = document.getElementById('btn-pause-' + sessId);
+  bs.disabled = true; bs.textContent = '진행 중...';
+  bp.classList.add('visible');
+
+  timerState[sessId].intervalId = setInterval(() => {
+    const st = timerState[sessId];
+    if (st.paused) return;
+    st.remaining--;
+    const m = Math.floor(st.remaining/60).toString().padStart(2,'0');
+    const s = (st.remaining%60).toString().padStart(2,'0');
+    document.getElementById('timer-' + sessId).textContent = m + ':' + s;
+    const offset = 565.5 * (1 - st.remaining / st.total);
+    document.getElementById('ring-' + sessId).style.strokeDashoffset = offset;
+    if (st.remaining <= 0) {
+      clearInterval(st.intervalId);
+      bp.classList.remove('visible');
+      currentPhaseIndex = sessions.findIndex(s => s.id === sessId) + 1;
+      showPhase(currentPhaseIndex);
+    }
+  }, 1000);
+}
+
+function togglePause(sessId) {
+  const st = timerState[sessId]; if (!st) return;
+  st.paused = !st.paused;
+  const btn = document.getElementById('btn-pause-' + sessId);
+  const sub = document.getElementById('sublabel-' + sessId);
+  if (st.paused) {
+    btn.textContent = '▶'; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)';
+    if (sub) sub.textContent = '일시 정지';
+  } else {
+    btn.textContent = '⏸'; btn.style.color = ''; btn.style.borderColor = '';
+    if (sub) sub.textContent = '남은 시간';
+  }
+}
+
+// ── 완료 ──
+function finishRecord() {
+  let streak = parseInt(localStorage.getItem('sw_streak') || '0');
+  const lastDate = localStorage.getItem('sw_last_date') || '';
+  const today = new Date().toDateString();
+  if (lastDate !== today) {
+    const y = new Date(); y.setDate(y.getDate()-1);
+    streak = (lastDate === y.toDateString()) ? streak+1 : 1;
+    localStorage.setItem('sw_streak', streak);
+    localStorage.setItem('sw_last_date', today);
+  }
+  document.getElementById('streak-num').textContent = streak;
+  document.getElementById('complete-msg').textContent =
+    praiseMessages[Math.floor(Math.random() * praiseMessages.length)];
+  show('screen-complete');
+}
+function exitApp()  { show('screen-exit'); }
+function resetApp() { buildScreens(); show('screen-greeting'); }
+
+// ── 설정 ──
+let draftSessions = [];
+
+function openSettings() {
+  draftSessions = JSON.parse(JSON.stringify(sessions));
+  renderSettingRows();
+  document.getElementById('settings-overlay').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open');
+}
+
+function renderSettingRows() {
+  const container = document.getElementById('settings-rows');
+  container.innerHTML = draftSessions.map((s, i) => `
+    <div class="setting-row" id="drow-${i}">
+      <span class="row-drag" title="순서 변경">⠿</span>
+      <input class="setting-name-input" id="dname-${i}" value="${s.name}" placeholder="세션 이름">
+      <input class="setting-time-input" id="dmin-${i}" type="number" min="1" max="180" value="${s.minutes}">
+      <span class="setting-unit">분</span>
+      <button class="row-type-toggle ${s.isRest?'is-rest':''}" id="dtype-${i}"
+        onclick="toggleType(${i})">${s.isRest ? '휴식' : '학습'}</button>
+      <button class="row-delete" onclick="deleteRow(${i})" title="삭제">×</button>
+    </div>`).join('');
+}
+
+function toggleType(i) {
+  draftSessions[i].isRest = !draftSessions[i].isRest;
+  renderSettingRows();
+}
+
+function deleteRow(i) {
+  if (draftSessions.length <= 1) return; // 최소 1개
+  draftSessions.splice(i, 1);
+  renderSettingRows();
+}
+
+function addSettingRow() {
+  draftSessions.push({ id: uid(), name: '새 세션', minutes: 30, isRest: false });
+  renderSettingRows();
+  // 스크롤 최하단
+  setTimeout(() => {
+    const panel = document.querySelector('.settings-panel');
+    if (panel) panel.scrollTop = panel.scrollHeight;
+  }, 50);
+}
+
+function saveSettings() {
+  // 인풋 값 반영
+  draftSessions.forEach((s, i) => {
+    const n = document.getElementById('dname-' + i);
+    const m = document.getElementById('dmin-' + i);
+    if (n) s.name = n.value.trim() || s.name;
+    if (m) s.minutes = Math.max(1, parseInt(m.value) || s.minutes);
+  });
+  sessions = draftSessions;
+  saveSessions(sessions);
+  buildScreens();
+  closeSettings();
+}
+</script>
+</body>
+</html>
